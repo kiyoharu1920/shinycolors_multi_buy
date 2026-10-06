@@ -8,7 +8,7 @@ function setup(confirm = true, config = {}) {
   const nodes = [];
   class Element {
     constructor(tag) { this.tag = tag; this.style = {}; this.children = []; this.events = {}; nodes.push(this); }
-    append(n) { this.children.push(n); }
+    append(n) { this.children.push(n); n.isConnected = true; }
     addEventListener(t, fn) { this.events[t] = fn; }
     setAttribute() {}
     querySelectorAll() { return []; }
@@ -49,19 +49,46 @@ function setup(confirm = true, config = {}) {
   scene._dialogLayer.showResult = showResult;
   scene._dialogLayer.showTradeResult = showResult;
   let confirmCalls = 0;
-  const window = { confirm: () => { confirmCalls++; config.onConfirm?.(scene); return confirm; }, alert: s => alerts.push(s), unedyavedad0as: [[[], { 4748: () => {} }]] };
-  window.unedyavedad0as.push = chunk => chunk[2](() => ({ sceneManager: { currentScene: scene } }));
-  const context = { window, document: { createElement: tag => new Element(tag), body: new Element('body') }, location: { pathname: `/shop/${config.category || 'money'}` }, console: { error() {} },
-    setInterval: () => 0, clearInterval() {}, setTimeout: (fn, ms) => { timers.set(++timerId, fn); delays.set(timerId, ms); return timerId; }, clearTimeout: id => { timers.delete(id); delays.delete(id); } };
+  const chunks = config.deferChunks ? [] : [[[], { 4748: () => {} }]];
+  let engineLoads = 0;
+  chunks.push = chunk => chunk[2](() => { engineLoads++; return { sceneManager: { currentScene: scene } }; });
+  const window = { confirm: () => { confirmCalls++; config.onConfirm?.(scene); return confirm; }, alert: s => alerts.push(s), [config.chunkName || 'unedyavedad0as']: chunks, unrelatedChunks: [[[], { 123: () => {} }]] };
+  Object.defineProperty(window, 'unreadableGlobal', { enumerable: true, get() { throw new Error('windowアクセサを読み取らない'); } });
+  let tick;
+  const document = { createElement: tag => new Element(tag), body: config.deferBody ? null : new Element('body') };
+  const context = { window, document, location: { pathname: `/shop/${config.category || 'money'}` }, console: { error() {} },
+    setInterval: fn => { tick = fn; return 0; }, clearInterval() {}, setTimeout: (fn, ms) => { timers.set(++timerId, fn); delays.set(timerId, ms); return timerId; }, clearTimeout: id => { timers.delete(id); delays.delete(id); } };
   vm.runInNewContext(source, context);
   nodes.find(n => n.textContent === '商品一覧・複数交換').onclick();
-  return { api: window.__shinyMoneyMultiBuy, items, calls, callbacks, alerts, timers, scene, nodes, dialogs,
+  return { api: window.__shinyMoneyMultiBuy, items, calls, callbacks, alerts, timers, scene, nodes, dialogs, chunks, document, tick,
+    get engineLoads() { return engineLoads; },
     fire(ms) { const id = [...delays.keys()].find(id => delays.get(id) === ms); assert.ok(id, `待機タイマー ${ms}ms`); const fn = timers.get(id); timers.delete(id); delays.delete(id); fn(); },
     get confirmCalls() { return confirmCalls; },
     checkbox: nodes.find(n => n.type === 'checkbox'),
     inputs: nodes.filter(n => n.tag === 'input' && n.type === 'number'), start: nodes.find(n => n.textContent === '合計を確認して交換') };
 }
 (async () => {
+  assert.match(source, /@run-at\s+document-start/);
+  for (const chunkName of ['nzhn7nlklhxphz', 'futureGameChunks']) {
+    const renamed = setup(true, { chunkName });
+    assert.equal(renamed.nodes.find(n => n.textContent === '商品一覧・複数交換').style.display, 'block', 'ゲーム配列名が変わってもボタンを表示する');
+    assert.equal(renamed.inputs.length, 2);
+    renamed.tick();
+    assert.equal(renamed.engineLoads, 1, 'エンジン取得を繰り返さない');
+  }
+  const early = setup(true, { deferBody: true, deferChunks: true });
+  assert.equal(early.engineLoads, 0);
+  assert.equal(early.inputs.length, 0);
+  early.document.body = { children: [], append(n) { this.children.push(n); n.isConnected = true; } };
+  early.tick();
+  assert.equal(early.document.body.children.length, 1);
+  assert.equal(early.nodes.find(n => n.textContent === '商品一覧・複数交換').style.display, 'none');
+  early.chunks[0] = [[], { 4748: () => {} }];
+  early.tick();
+  assert.equal(early.engineLoads, 1, '後からロードされたショップチャンクを取得する');
+  assert.equal(early.nodes.find(n => n.textContent === '商品一覧・複数交換').style.display, 'block');
+  early.tick();
+  assert.equal(early.document.body.children.length, 1, 'ボタンを重複追加しない');
   const s = setup();
   assert.equal(s.api.limit(s.items[0], 300), 3);
   assert.equal(s.api.limit({ ...s.items[0], currency: 'jewel' }, 1000), 0);

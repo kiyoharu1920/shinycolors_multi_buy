@@ -1,10 +1,10 @@
 // ==UserScript==
 // @name         シャニマス ショップ 複数交換
 // @namespace    myAI.shinycolors.money
-// @version      1.3.1
+// @version      1.3.2
 // @description  商品ごとに数量を選び、合計確認後に公式処理で順番に交換します。
 // @match        https://shinycolors.enza.fun/*
-// @run-at       document-idle
+// @run-at       document-start
 // @grant        none
 // ==/UserScript==
 
@@ -230,7 +230,6 @@
   api.readOnlyReason = readOnlyReason;
   const button = element('button', '商品一覧・複数交換');
   button.style.cssText = 'position:fixed;right:12px;top:12px;z-index:2147483646;padding:10px 16px;background:#b21b75;color:white;border:2px solid white;border-radius:8px;font-size:16px;cursor:pointer;display:none';
-  document.body.append(button);
   let panel;
   /**
    * 現在のカテゴリの商品を数量選択パネルへ表示し、各ボタンの処理を登録する。
@@ -487,11 +486,21 @@
    * @returns {void}
    */
   const tick = () => {
+    // document-startではbodyがまだない。構築後にボタンを追加する。
+    if (!document.body) return;
+    if (!button.isConnected) document.body.append(button);
     if (!engine) {
-      // 識別子とモジュールIDは2026-10-03の公式配信コードで確認した値。
-      const chunks = window.unedyavedad0as;
-      if (Array.isArray(chunks) && chunks.some(c => c?.[1]?.[4748])) {
-        chunks.push([[`myai-money-${Date.now()}`], {}, require => { engine = require(77528); }]);
+      // 配列名はゲーム更新で変わるため、確認済みショップモジュールで識別する。
+      // windowのアクセサを実行せず、値として公開された配列だけ調べる。
+      for (const key of Object.keys(window)) {
+        const chunks = Object.getOwnPropertyDescriptor(window, key)?.value;
+        if (!Array.isArray(chunks) || chunks.push === Array.prototype.push || !chunks.some(c => c?.[1]?.[4748])) continue;
+        chunks.push([[`myai-money-${Date.now()}`], {}, require => {
+          if (require.m && !Object.hasOwn(require.m, 77528)) return;
+          const candidate = require(77528);
+          if (candidate?.sceneManager) engine = candidate;
+        }]);
+        if (engine) break;
       }
     }
     const scene = current();
