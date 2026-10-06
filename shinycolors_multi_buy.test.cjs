@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 const { EventEmitter } = require('node:events');
-const source = fs.readFileSync(`${__dirname}/shinycolors-money-multi-buy.user.js`, 'utf8');
+const source = fs.readFileSync(`${__dirname}/shinycolors_multi_buy.user.js`, 'utf8');
 function setup(confirm = true, config = {}) {
   const nodes = [];
   class Element {
