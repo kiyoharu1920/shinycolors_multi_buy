@@ -6,6 +6,7 @@
 // @match        https://shinycolors.enza.fun/*
 // @run-at       document-start
 // @grant        none
+// @license MIT
 // ==/UserScript==
 
 /**
